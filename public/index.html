@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Real-time chat application using Socket.io">
+  <title>Real-Time Chat | Socket.io Chat Application</title>
+  <link href="css/styles.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <main class="chat-app">
+    <div class="chat-container">
+      <h1 class="sr-only">Real-Time Chat Application</h1>
+      <div class="chat-window">
+        <div class="output" aria-live="polite" role="log"></div>
+        <div class="actions"></div>
+      </div>
+      <form id="chat-form" class="message-form">
+        <label for="username" class="sr-only">Username</label>
+        <input type="text" id="username" placeholder="Username" required aria-required="true">
+        
+        <label for="message" class="sr-only">Message</label>
+        <input type="text" id="message" placeholder="Message" required aria-required="true">
+        
+        <button type="submit" id="send" aria-label="Send message">Send</button>
+      </form>
+    </div>
+    <script src="socket.io/socket.io.js"></script>
+    <script src="js/main.js" type="module"></script>
+  </main>
+</body>
+</html>
