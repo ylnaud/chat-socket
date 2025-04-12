@@ -16,13 +16,17 @@ app.get("/", (req, res) => {
 });
 
 // Configuración de Socket.io
+// Cambia la configuración de Socket.io al inicio del archivo
 const io = socketIo(server, {
   cors: {
     origin: "*",
-    methods: ["GET", "POST"],
+    methods: ["GET", "POST"]
   },
+  // Añade estas opciones para Render:
+  transports: ['websocket', 'polling'],
+  pingTimeout: 60000,
+  pingInterval: 25000
 });
-
 // Almacenamiento de datos
 const messageHistory = [];
 const MAX_HISTORY = 100;
