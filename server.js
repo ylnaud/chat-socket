@@ -1,104 +1,106 @@
-const express = require('express');
-const path = require('path');
-const { execSync } = require('child_process');
-const socketIo = require('socket.io');
-const http = require('http');
+const express = require("express");
+const path = require("path");
+const http = require("http");
+const socketIo = require("socket.io");
 
 const app = express();
-const PORT = 3000;
+const server = http.createServer(app);
+const PORT = process.env.PORT || 3000;
 
-// Liberar puerto al inicio (solo Linux)
-function killPort() {
-  try {
-    execSync(`fuser -k ${PORT}/tcp 2>/dev/null`);
-    console.log(`🔥 Puerto ${PORT} liberado`);
-  } catch {
-    console.log(`✅ Puerto ${PORT} estaba libre`);
-  }
-}
+// Configuración de Express
+app.use(express.static(path.join(__dirname, "public")));
 
-killPort(); // Ejecutar al inicio
-
-// Configuración del servidor
-app.use(express.static(path.join(__dirname, 'public')));
-
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+// Ruta principal
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-const server = http.createServer(app);
-const io = socketIo(server); // Correcta inicialización de Socket.io
+// Configuración de Socket.io
+const io = socketIo(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"],
+  },
+});
 
-// Store chat history
+// Almacenamiento de datos
 const messageHistory = [];
-const MAX_HISTORY = 100; // Keep last 100 messages
+const MAX_HISTORY = 100;
+const onlineUsers = new Map();
 
-io.on('connection', (socket) => {
-  console.log('New user connected');
-  
-  // Send chat history to new user
-  socket.emit('history', messageHistory);
-  
-  // Broadcast when a user connects
-  socket.on('new user', (username) => {
+io.on("connection", (socket) => {
+  console.log("✅ Nuevo usuario conectado:", socket.id);
+
+  // Enviar historial al nuevo usuario
+  socket.emit("history", messageHistory);
+
+  // Registrar nuevo usuario
+  socket.on("new user", (username) => {
     socket.username = username;
-    io.emit('user connected', username); // Usar io.emit para que todos lo vean
+    onlineUsers.set(socket.id, {
+      username: username,
+      status: "online",
+      lastSeen: null,
+    });
+
+    io.emit("user connected", username);
+    io.emit("online users", Array.from(onlineUsers.values()));
+    console.log(`👋 ${username} se unió al chat`);
   });
-  
-  // Listen for chat messages
-  socket.on('chat message', (data) => {
+
+  // Manejar mensajes
+  socket.on("chat message", (data) => {
     const message = {
       username: data.username,
       message: data.message,
-      timestamp: new Date()
+      timestamp: new Date().toISOString(),
     };
-    
-    // Add to history
+
+    // Actualizar historial
     messageHistory.push(message);
-    if (messageHistory.length > MAX_HISTORY) {
-      messageHistory.shift(); // Remove oldest message
-    }
-    
-    // Broadcast to all clients
-    io.emit('chat message', message);
+    if (messageHistory.length > MAX_HISTORY) messageHistory.shift();
+
+    io.emit("new message", message);
   });
-  
-  // Listen for typing events
-  socket.on('typing', (username) => {
-    socket.broadcast.emit('typing', username);
-  });
-  
-  // Handle disconnection
-  socket.on('disconnect', () => {
+
+  // Manejar desconexión
+  socket.on("disconnect", () => {
     if (socket.username) {
-      io.emit('user disconnected', socket.username);
+      const user = onlineUsers.get(socket.id);
+      if (user) {
+        user.status = "offline";
+        user.lastSeen = new Date().toISOString();
+      }
+
+      io.emit("user disconnected", socket.username);
+      io.emit("online users", Array.from(onlineUsers.values()));
+      console.log(`🚪 ${socket.username} abandonó el chat`);
     }
-    console.log('User disconnected');
+    onlineUsers.delete(socket.id);
+  });
+
+  // Manejar estado "escribiendo"
+  socket.on("typing", (username) => {
+    socket.broadcast.emit("typing", username);
   });
 });
 
-// Manejo de cierre elegante
-let isClosing = false;
-
-const gracefulShutdown = () => {
-  if (isClosing) return;
-  isClosing = true;
-
-  console.log('\n🔌 Apagando servidor...');
-  server.close(() => {
-    console.log('✅ Servidor cerrado limpiamente');
-    process.exit(0);
+// Verificar conexiones activas periódicamente
+setInterval(() => {
+  const now = new Date();
+  onlineUsers.forEach((user, socketId) => {
+    if (user.status === "online") {
+      const socket = io.sockets.sockets.get(socketId);
+      if (!socket) {
+        user.status = "offline";
+        user.lastSeen = now.toISOString();
+      }
+    }
   });
+  io.emit("online users", Array.from(onlineUsers.values()));
+}, 60000); // Cada minuto
 
-  setTimeout(() => {
-    console.log('⚠️ Cerrando forzosamente...');
-    process.exit(1);
-  }, 3000);
-};
-
-process.once('SIGINT', gracefulShutdown);
-process.once('SIGTERM', gracefulShutdown);
-
+// Iniciar servidor
 server.listen(PORT, () => {
-  console.log(`🚀 Servidor en http://localhost:${PORT}`);
+  console.log(`🚀 Servidor listo en puerto ${PORT}`);
 });

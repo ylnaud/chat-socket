@@ -3,8 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "node server.js",
-    "start-dev": "node --watch server.js"
+    "start": "node server.js"
   },
   "keywords": [],
   "author": "",
@@ -12,5 +11,8 @@
   "description": "curso de socket",
   "dependencies": {
     "socket.io": "^4.8.1"
+  },
+    "engines": {
+    "node": "v22.14.0"
   }
 }
